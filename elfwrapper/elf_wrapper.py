@@ -21,6 +21,7 @@ class ElfAddrObj(ELFFile):
     DW_AT_TYPE = 'DW_AT_type'
     DW_AT_TYPEDEF = 'DW_TAG_typedef'
     DW_AT_NAME = 'DW_AT_name'
+    DW_AT_LINKAGE_NAME= 'DW_AT_linkage_name'
     DW_AT_BASE_TYPE = 'DW_TAG_base_type'
     version = '0.0.5'
 
@@ -111,6 +112,9 @@ class ElfAddrObj(ELFFile):
             self._die_depth = 0
             iter_dies = cu.iter_DIEs()
             for die in iter_dies:
+
+                print('    die offset 0x%x' % (
+                    die.offset))
                 self._process_die(die, iter_dies)
 
     def _process_die(self, die, iter_dies):
@@ -221,7 +225,11 @@ class ElfAddrObj(ELFFile):
         self.offset_dict[die.offset] = attrs
 
         next_die = next(iter_dies)
-        while(next_die.tag == 'DW_TAG_member'):
+        if next_die.tag in ['DW_TAG_union_type']:
+            self._process_die(next_die, iter_dies)
+            next_die = next(iter_dies)
+
+        while next_die.tag in ['DW_TAG_member']:
             attrs = self._attr_to_dict(next_die)
             if self.DW_AT_NAME in attrs:
                 member_name = attrs.DW_AT_name
@@ -275,6 +283,9 @@ class ElfAddrObj(ELFFile):
             attrs.DW_AT_type = typeint
         if self.DW_AT_NAME in attrs and attrs.DW_AT_name.startswith("(indirect string, offset:"):
             attrs.DW_AT_name = attrs.DW_AT_name.split(":")[2].strip()
+        elif self.DW_AT_LINKAGE_NAME in attrs and attrs[self.DW_AT_LINKAGE_NAME].startswith("(indirect string, offset:"):
+            attrs.DW_AT_name = attrs[self.DW_AT_LINKAGE_NAME].split(":")[2].strip()
+
         attrs.raw_die = die
         attrs.offset = die.offset
         return attrs
